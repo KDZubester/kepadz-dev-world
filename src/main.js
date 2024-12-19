@@ -1,9 +1,12 @@
 import './style.css'
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/environments/RoomEnvironment.js';
 // import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+// import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // Create a scene
 const scene = new THREE.Scene();
