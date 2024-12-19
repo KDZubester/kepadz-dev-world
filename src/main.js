@@ -58,7 +58,7 @@ Array( 200 ).fill().forEach( addStar );
 const textureLoader = new THREE.TextureLoader();
 
 // Load the texture
-textureLoader.load('/art/space.jpg', (texture) => {
+textureLoader.load('./art/space.jpg', (texture) => {
     // Apply the texture as the scene background
     scene.background = texture;
 }, undefined, (error) => {
@@ -71,7 +71,7 @@ textureLoader.load('/art/space.jpg', (texture) => {
 const assetLoader = new GLTFLoader();
 
 let prince;
-assetLoader.load('/art/prince_fox.glb', function(gltf) {
+assetLoader.load('./art/prince_fox.glb', function(gltf) {
   prince = gltf.scene;
   prince.position.set(3, 0, 0);
   prince.scale.set(0.25, 0.25, 0.25);
@@ -83,7 +83,7 @@ assetLoader.load('/art/prince_fox.glb', function(gltf) {
 
 
 let rose;
-assetLoader.load('/art/rose.glb', function(gltf) {
+assetLoader.load('./art/rose.glb', function(gltf) {
   rose = gltf.scene;
   rose.position.set(2.25, 0, 5);
   rose.scale.set(0.125, 0.125, 0.125);
@@ -95,7 +95,7 @@ assetLoader.load('/art/rose.glb', function(gltf) {
 
 
 let baobab;
-assetLoader.load('/art/baobab.glb', function(gltf) {
+assetLoader.load('./art/baobab.glb', function(gltf) {
   baobab = gltf.scene;
   baobab.position.set(-2.5, -1, 10);
   baobab.scale.set(0.2, 0.2, 0.2);
@@ -108,7 +108,7 @@ assetLoader.load('/art/baobab.glb', function(gltf) {
 
 
 let box;
-assetLoader.load('/art/box.glb', function(gltf) {
+assetLoader.load('./art/box.glb', function(gltf) {
   box = gltf.scene;
   box.position.set(2, 0, 20);
   box.scale.set(0.125, 0.125, 0.125);
@@ -121,7 +121,7 @@ assetLoader.load('/art/box.glb', function(gltf) {
 
 
 let sheep;
-assetLoader.load('/art/sheep.glb', function(gltf) {
+assetLoader.load('./art/sheep.glb', function(gltf) {
   sheep = gltf.scene;
   sheep.position.set(-2, 0, 30);
   sheep.scale.set(0.25, 0.25, 0.25);
@@ -133,7 +133,7 @@ assetLoader.load('/art/sheep.glb', function(gltf) {
 });
 
 let mixer;
-assetLoader.load('/art/plane.glb', function(gltf) {
+assetLoader.load('./art/plane.glb', function(gltf) {
     const model = gltf.scene;
     model.position.set(7, 0, 38);
     model.scale.set(0.25, 0.25, 0.25);
