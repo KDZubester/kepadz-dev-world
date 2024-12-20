@@ -16,7 +16,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, 
                                             window.innerWidth / window.innerHeight,
                                             0.1, 
-                                            15
+                                            30
                                           );
 
 // Create a renderer that renders the scene and camera (make the magic happen)
