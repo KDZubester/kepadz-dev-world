@@ -135,7 +135,7 @@ assetLoader.load('./art/sheep.glb', function(gltf) {
 let mixer;
 assetLoader.load('./art/plane.glb', function(gltf) {
     const model = gltf.scene;
-    model.position.set(7, 0, 38);
+    model.position.set(7, 0, 43);
     model.scale.set(0.25, 0.25, 0.25);
     scene.add(model);
 
