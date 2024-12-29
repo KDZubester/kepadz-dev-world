@@ -1,9 +1,9 @@
 const cacheName = "NextDoorGamer-kepadz-portfolio-website-0.1.0";
 const contentToCache = [
-    "Build/Build.loader.js",
-    "Build/Build.framework.js",
-    "Build/Build.data",
-    "Build/Build.wasm",
+    "Build/LittlePrincePlanet.loader.js",
+    "Build/LittlePrincePlanet.framework.js",
+    "Build/LittlePrincePlanet.data",
+    "Build/LittlePrincePlanet.wasm",
     "TemplateData/style.css"
 
 ];
