@@ -1,103 +1,215 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | kepadz-portfolio-website</title>
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
-    <link rel="manifest" href="manifest.webmanifest">
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml+png" href="/kepadz-dev-world/art/moon_favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>kepa-zubeldia</title>
+    <script type="module" crossorigin src="/kepadz-dev-world/assets/index-BcDytLry.js"></script>
+    <link rel="stylesheet" crossorigin href="/kepadz-dev-world/assets/index-5ExnGm1m.css">
   </head>
   <body>
-    <div id="unity-container">
-      <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
-      <div id="unity-loading-bar">
-        <div id="unity-logo"></div>
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
-        </div>
-      </div>
-      <div id="unity-warning"> </div>
-    </div>
-    <script>
-      window.addEventListener("load", function () {
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.register("ServiceWorker.js");
-        }
-      });
 
-      var container = document.querySelector("#unity-container");
-      var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var warningBanner = document.querySelector("#unity-warning");
+    <canvas id="bg"></canvas>
+    <main>
 
-      // Shows a temporary message banner/ribbon for a few seconds, or
-      // a permanent error message on top of the canvas if type=='error'.
-      // If type=='warning', a yellow highlight color is used.
-      // Modify or remove this function to customize the visually presented
-      // way that non-critical warnings and error messages are presented to the
-      // user.
-      function unityShowBanner(msg, type) {
-        function updateBannerVisibility() {
-          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
-        }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
-        warningBanner.appendChild(div);
-        if (type == 'error') div.style = 'background: red; padding: 10px;';
-        else {
-          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
-          setTimeout(function() {
-            warningBanner.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
-        }
-        updateBannerVisibility();
-      }
+      <header>
+        <h1>Kepa Zubeldia</h1>
+        <p>🚀 Welcome to my website!</p>
+      </header>
 
-      var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/Build.loader.js";
-      var config = {
-        dataUrl: buildUrl + "/Build.data",
-        frameworkUrl: buildUrl + "/Build.framework.js",
-        codeUrl: buildUrl + "/Build.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "NextDoorGamer",
-        productName: "kepadz-portfolio-website",
-        productVersion: "0.1.0",
-        showBanner: unityShowBanner,
-      };
 
-      // By default Unity keeps WebGL canvas render target size matched with
-      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
-      // Set this to false if you want to decouple this synchronization from
-      // happening inside the engine, and you would instead like to size up
-      // the canvas DOM size and WebGL render target sizes yourself.
-      // config.matchWebGLToCanvasSize = false;
+      <blockquote>
+        <p>I like making stuff that has never been made before</p>
+      </blockquote>
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        // Mobile device style: fill the whole browser client area with the game canvas:
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
-        document.getElementsByTagName('head')[0].appendChild(meta);
-      }
+      <section>
+        <h2>📜 Education</h2>
+        <p>
+          Brigham Young University
+        </p>
 
-      loadingBar.style.display = "block";
+        <p>
+          Graduated with a BS in Electrical & Computer Engineering in April 2023
+        </p>
 
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          loadingBar.style.display = "none";
-        }).catch((message) => {
-          alert(message);
-        });
-      };
-      document.body.appendChild(script);
-    </script>
+        <p>
+          GPA: 3.61
+        </p>
+
+      </section>
+
+      
+      <section class="left">
+        <h2>💪 Skills</h2>
+
+        <h3>Hardware</h3>
+        <p>
+          FPGA, System Verilog, Vivado/Vitis
+        </p>
+        <p>
+          STM32, ESP32, Raspberry Pi, Arduino
+        </p>
+        <p>
+          Digital circuit design, Altium, Eagle
+        </p>
+        <p>
+          Soldering, SMD Soldering, 3D Printing
+        </p>
+        <br>
+
+        <h3>Software</h3>
+        <p>
+          C/C++, C#/.net, Python
+        </p>
+        <p>
+          Git, Linux
+        </p>
+        <p>
+          Java, Golang, SQL
+        </p>
+        <p>
+          HTML, CSS, Javascript
+        </p>
+
+      </section>
+
+      <section class="light">
+        <h2>🛠️ Work History</h2>
+
+        <h3>RTX - Electrical Engineer (May 2023 - Present)</h3>
+        <p>
+          Design, implement, and streamline critical path automated test processes for a major RTX product
+        </p>
+        <p>
+          Maintain and enhance the capabilities of a Python-based web application to be deployed worldwide
+        </p>
+        <p>
+          Support engineering team with rapid testing and developement needs
+        </p>
+        <p>
+          Design and develop cutting edge electrical systems to overcome never before seen challanges
+        </p>
+        <p>
+          Collaborate with interdisciplinary teams to create inventive solutions
+        </p>
+        <br>
+
+        <h3>BYU - Research Assistant (June 2022 - April 2023)</h3>
+        <p>
+          Audited LabView code to automate the training of a 3D neuromorphic chip
+        </p>
+        <p>
+          Spearheaded the implementation of COMSOL to accurately model the functionality of new ultrasonic transducer designs for our research
+        </p>
+        <p>
+          Performed a rigorous field study in local and nationwide universities to investigate how professionals fabricate ultrasonic transducers
+        </p>
+        <p>
+          Directed the creation of various interactive and educational demos to teach children higher level acoustics and optics for a mobile fabrication lab
+        </p>
+        <br>
+
+        <h3>BYU - Project Assistant (May 2021 - April 2023)</h3>
+        <p>
+          Designed and created small power supplies to aid in classes and research for the BYU Physics department
+        </p>
+        <p>
+          Applied information from datasheets and knowledge of circuit design to accurately diagnose and fix problems in electrical equipment
+        </p>
+        <p>
+          Organized the Physics Department’s new electronics lab to make daily activities more productive
+        </p>
+
+      </section>
+
+      <section class="left">
+        <h2>👩🏽‍🚀 Personal Projects</h2>
+
+        <h3>DIY-Watch / BYU Student Innovator of the Year Honorable Mention</h3>
+        <p>
+          Designed a digital watch that runs with an Arduino chip and discrete components that is fun to make and easy to program
+        </p>
+        <p>
+          Led an interdisciplinary team to create simple watch kits to help kids, teenagers, and adults get excited about engineering and become curious about the world around them
+        </p>
+        <p>
+          Won $500 in BYU’s 2023 Student Innovator of the Year competition
+        </p>
+        <br>
+
+        <h3>8x8x8 LED Cube / Interactive Display </h3>
+        <p>
+          Designed and built an 8x8x8 LED matrix cube using Arduino and 74HC595 shift registers, creating original circuits and code to overcome challenges like incorrect soldering
+        </p>
+        <p>
+          Integrated a prototype game controller to develop abstract 3D games, including Snake, utilizing all three matrix axes
+        </p>
+        <br>
+
+        <h3>Cryptographic FPGA Hacking / BYU Capstone Project</h3>
+        <p>
+          Developed an SHA-256 cryptographic algorithm on an FPGA using open-source resources
+        </p>
+        <p>
+          Designed a custom AXI4-Lite interface for data communication between the FPGA and an ARM CPU
+        </p>
+        <p>
+          Developed FPGA architecture with Vivado and debugged the communication behavior between the FPGA and CPU using Vitis
+        </p>
+        <br>
+
+        <h3>Pizza Boy / Arcade Survival Game for Mobile</h3>
+        <p>
+          Harnessed Unity and Blender’s powerful tools to make a 3D homage to Paperboy from the NES for mobile platforms
+        </p>
+        <p>
+          Applied CI/CD Pipeline with Unity’s Version Control System and itch.io’s Butler Tool
+        </p>
+        <p>
+          Designed a Wave Function Generation algorithm that applies quantum mechanics to procedurally generate levels
+        </p>
+
+      </section>
+
+      <blockquote>
+        <p>All grown-ups were once children… but only few of them remember it. <br>-Antoine de Saint-Exupéry</p>
+      </blockquote>
+
+      <blockquote>
+        <div id="link-container"></div>
+      
+        <script>
+          document.addEventListener("DOMContentLoaded", function () {
+            // Function to detect if the device is mobile
+            function isMobileDevice() {
+              return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            }
+      
+            // Get the container where the link or text will be displayed
+            const linkContainer = document.getElementById('link-container');
+      
+            if (isMobileDevice()) {
+              // Display a message for mobile users
+              linkContainer.innerHTML = `
+                <p>Check out my portfolio on desktop!</p>
+              `;
+            } else {
+              // Display the hyperlink for desktop users
+              linkContainer.innerHTML = `
+                <p>
+                  Check out my portfolio <a href="LittlePrincePlanet/index.html" class="styled-link">here</a>
+                </p>
+              `;
+            }
+          });
+        </script>
+      </blockquote>
+      
+
+
+    </main>
+
+    <!-- <div id="app"></div> -->
   </body>
 </html>
