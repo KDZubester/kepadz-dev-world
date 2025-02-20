@@ -1,15 +1,26 @@
-<!doctype html>
-<html lang="en">
-  <head>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>About</title>
+    <link rel="stylesheet" href="./static/style.css">
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml+png" href="/kepadz-dev-world/art/moon_favicon.png" />
+    <link rel="icon" type="image/svg+xml+png" href="./static/art/moon_favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>kepa-zubeldia</title>
-    <script type="module" crossorigin src="/kepadz-dev-world/assets/index-BcDytLry.js"></script>
-    <link rel="stylesheet" crossorigin href="/kepadz-dev-world/assets/index-5ExnGm1m.css">
-  </head>
-  <body>
-
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/">About</a></li>
+                <li><a href="/blog">Blog</a></li>
+                <li><a href="/portfolio">Portfolio</a></li>
+                <li><a href="/signup">Sign Up</a></li>
+                <li><a href="/login">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+    
     <canvas id="bg"></canvas>
     <main>
 
@@ -198,7 +209,7 @@
               // Display the hyperlink for desktop users
               linkContainer.innerHTML = `
                 <p>
-                  Check out my interactive portfolio <a href="LittlePrincePlanet/index.html" class="styled-link">here</a>
+                  Check out my interactive portfolio <a href="static/LittlePrincePlanet/index.html" class="styled-link">here</a>
                 </p>
               `;
             }
@@ -210,6 +221,16 @@
 
     </main>
 
-    <!-- <div id="app"></div> -->
-  </body>
+    <!-- <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+          "three/": "https://cdn.jsdelivr.net/npm/three@0.172.0/"
+        }
+      }
+    </script>
+    <script type="module" src="./static/main.js"></script> -->
+
+
+</body>
 </html>
