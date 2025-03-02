@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ .Title }}</title>
+    <title>{{ .Article.Title }}</title>
 </head>
 <body>
     <header>
@@ -10,16 +10,19 @@
             <ul>
                 <li><a href="/">About</a></li>
                 <li><a href="/blog">Blog</a></li>
-                <li><a href="/portfolio">Portfolio</a></li>
-                <li><a href="/signup">Sign Up</a></li>
-                <li><a href="/login">Login</a></li>
+                {{if .Permissions.IsAuthenticated}}
+                    <li><a href="/logout">Logout</a></li>
+                {{else}}
+                    <li><a href="/login">Login</a></li>
+                    <li><a href="/signup">Sign Up</a></li>
+                {{end}}
             </ul>
         </nav>
     </header>
-    <h1>{{ .Title }}</h1>
-    <img src="{{ .Image }}" alt="Article Image Outer" style="max-width:100%;">
-    <p><strong>Summary Outer:</strong> {{ .Summary }}</p>
-    <article>{{ .Content }}</article>
+    <h1>{{ .Article.Title }}</h1>
+    <img src="{{ .Article.Image }}" alt="Article Image" style="max-width:100%;">
+    <p><strong>Summary Outer:</strong> {{ .Article.Summary }}</p>
+    <article>{{ .Article.Content }}</article>
 </body>
 </html>
 {{end}}
