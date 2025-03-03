@@ -1,3 +1,2 @@
-Get emails to be sent upon article creation
 Create an admin page to send messages to all who are subscribed (or specific people)
 Create comment section to articles

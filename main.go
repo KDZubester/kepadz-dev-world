@@ -4,6 +4,7 @@ import (
     "crypto/aes"
     "crypto/cipher"
     "crypto/rand"
+	"crypto/tls"
     "database/sql"
     "encoding/base64"
     "fmt"
@@ -13,6 +14,7 @@ import (
     "net/http"
     "os"
     "sync"
+	"net/smtp"
 
     "github.com/gorilla/mux"
     "github.com/gorilla/sessions"
@@ -216,7 +218,116 @@ func saveArticle(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // Send email to users who opted to receive emails
+    go sendEmailToSubscribers(title, summary)
+
     http.Redirect(w, r, "/blog", http.StatusSeeOther)
+}
+
+func sendEmailToSubscribers(title, summary string) {
+    // Retrieve users who opted to receive emails
+    rows, err := db.Query("SELECT email FROM users WHERE receive_emails = TRUE")
+    if err != nil {
+        log.Printf("Error querying users: %v", err)
+        return
+    }
+    defer rows.Close()
+
+    var emails []string
+    for rows.Next() {
+        var encryptedEmail string
+        err := rows.Scan(&encryptedEmail)
+        if err != nil {
+            log.Printf("Error scanning email: %v", err)
+            continue
+        }
+
+        email, err := decryptEmail(encryptedEmail)
+        if err != nil {
+            log.Printf("Error decrypting email: %v", err)
+            continue
+        }
+
+        emails = append(emails, email)
+    }
+
+    // SMTP server configuration
+    smtpHost := os.Getenv("SMTP_HOST")
+    smtpPort := os.Getenv("SMTP_PORT")
+    smtpUser := os.Getenv("SMTP_USER")
+    smtpPass := os.Getenv("SMTP_PASS")
+
+    auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+    from := smtpUser
+    subject := "New Article Published: " + title
+    body := "A new article has been published on our blog:\n\n" + title + "\n\n" + summary + "\n\nVisit our blog to read the full article."
+
+    for _, to := range emails {
+        msg := "From: " + from + "\n" +
+            "To: " + to + "\n" +
+            "Subject: " + subject + "\n" +
+            "MIME-Version: 1.0" + "\n" +
+            "Content-Type: text/plain; charset=\"UTF-8\"" + "\n" +
+            "Content-Transfer-Encoding: 7bit" + "\n\n" +
+            body
+
+        // Connect to the SMTP server
+        conn, err := smtp.Dial(smtpHost + ":" + smtpPort)
+        if err != nil {
+            log.Printf("Error connecting to SMTP server: %v", err)
+            continue
+        }
+
+        // Start TLS
+        tlsconfig := &tls.Config{
+            InsecureSkipVerify: true,
+            ServerName:         smtpHost,
+        }
+
+        if err = conn.StartTLS(tlsconfig); err != nil {
+            log.Printf("Error starting TLS: %v", err)
+            continue
+        }
+
+        // Authenticate
+        if err = conn.Auth(auth); err != nil {
+            log.Printf("Error authenticating to SMTP server: %v", err)
+            continue
+        }
+
+        // Set the sender and recipient
+        if err = conn.Mail(from); err != nil {
+            log.Printf("Error setting sender: %v", err)
+            continue
+        }
+        if err = conn.Rcpt(to); err != nil {
+            log.Printf("Error setting recipient: %v", err)
+            continue
+        }
+
+        // Send the email body
+        w, err := conn.Data()
+        if err != nil {
+            log.Printf("Error getting Data writer: %v", err)
+            continue
+        }
+        _, err = w.Write([]byte(msg))
+        if err != nil {
+            log.Printf("Error writing email body: %v", err)
+            continue
+        }
+        err = w.Close()
+        if err != nil {
+            log.Printf("Error closing Data writer: %v", err)
+            continue
+        }
+
+        // Close the connection
+        conn.Quit()
+
+        log.Printf("Email sent to %s", to)
+    }
 }
 
 func hashPassword(password string) (string, error) {
