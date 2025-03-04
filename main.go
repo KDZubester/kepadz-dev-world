@@ -105,6 +105,9 @@ func main() {
     r.HandleFunc("/login", serveLogin).Methods("GET", "POST")
     r.HandleFunc("/logout", serveLogout)
 	r.HandleFunc("/unsubscribe", serveUnsubscribe).Methods("GET", "POST")
+    r.HandleFunc("/forgotUsername", serveForgotUsername).Methods("GET", "POST")
+    r.HandleFunc("/forgotPassword", serveForgotPassword).Methods("GET", "POST")
+    r.HandleFunc("/resetPassword", serveResetPassword).Methods("GET", "POST")
 
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -453,6 +456,144 @@ func serveUnsubscribe(w http.ResponseWriter, r *http.Request) {
 
         log.Printf("User with email %s unsubscribed successfully, rows affected: %d", email, rowsAffected)
         http.Redirect(w, r, "/", http.StatusSeeOther)
+    }
+}
+
+func serveForgotUsername(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodGet {
+        http.ServeFile(w, r, "forgotUsername.html")
+        return
+    }
+
+    if r.Method == http.MethodPost {
+        email := r.FormValue("email")
+
+        var username string
+        err := db.QueryRow("SELECT username FROM users WHERE email = ?", email).Scan(&username)
+        if err != nil {
+            log.Printf("Error querying user from database: %v", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+            return
+        }
+
+        // Send email with username
+        sendUsernameEmail(email, username)
+
+        log.Printf("Username reminder sent to %s", email)
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+    }
+}
+
+func serveForgotPassword(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodGet {
+        http.ServeFile(w, r, "forgotPassword.html")
+        return
+    }
+
+    if r.Method == http.MethodPost {
+        username := r.FormValue("username")
+        email := r.FormValue("email")
+
+        var dbUsername, dbEmail string
+        err := db.QueryRow("SELECT username, email FROM users WHERE username = ? AND email = ?", username, email).Scan(&dbUsername, &dbEmail)
+        if err != nil {
+            if err == sql.ErrNoRows {
+                log.Printf("No matching user found for username: %s and email: %s", username, email)
+                http.Error(w, "Invalid username or email", http.StatusUnauthorized)
+            } else {
+                log.Printf("Error querying user from database: %v", err)
+                http.Error(w, "Internal server error", http.StatusInternalServerError)
+            }
+            return
+        }
+
+        // Send email with reset password link
+        sendResetPasswordEmail(email, username)
+
+        log.Printf("Password reset link sent to %s", email)
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+    }
+}
+
+func serveResetPassword(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodGet {
+        http.ServeFile(w, r, "resetPassword.html")
+        return
+    }
+
+    if r.Method == http.MethodPost {
+        username := r.FormValue("username")
+        password := r.FormValue("password")
+        confirmPassword := r.FormValue("confirmPassword")
+
+        if password != confirmPassword {
+            http.Error(w, "Passwords do not match", http.StatusBadRequest)
+            return
+        }
+
+        passwordHash, err := hashPassword(password)
+        if err != nil {
+            log.Printf("Error hashing password: %v", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+            return
+        }
+
+        _, err = db.Exec("UPDATE users SET password_hash = ? WHERE username = ?", passwordHash, username)
+        if err != nil {
+            log.Printf("Error updating user in database: %v", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+            return
+        }
+
+        log.Printf("Password for user %s reset successfully", username)
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+    }
+}
+
+func sendUsernameEmail(email, username string) {
+    smtpHost := os.Getenv("SMTP_HOST")
+    smtpPort := os.Getenv("SMTP_PORT")
+    smtpUser := os.Getenv("SMTP_USER")
+    smtpPass := os.Getenv("SMTP_PASS")
+
+    auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+    from := smtpUser
+    subject := "Your Username"
+    body := fmt.Sprintf("Your username is: %s", username)
+
+    msg := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\n\n%s", from, email, subject, body)
+
+    err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{email}, []byte(msg))
+    if err != nil {
+        log.Printf("Error sending email: %v", err)
+    }
+}
+
+func sendResetPasswordEmail(email, username string) {
+    smtpHost := os.Getenv("SMTP_HOST")
+    smtpPort := os.Getenv("SMTP_PORT")
+    smtpUser := os.Getenv("SMTP_USER")
+    smtpPass := os.Getenv("SMTP_PASS")
+
+    auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+    from := smtpUser
+    subject := "Reset Your Password"
+    body := fmt.Sprintf(`
+        <html>
+        <body>
+        <p>Click the link to reset your password:</p>
+        <p><a href="http://localhost:8080/resetPassword?username=%s">Reset Password</a></p>
+        </body>
+        </html>
+    `, username)
+
+    msg := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\nMIME-Version: 1.0\nContent-Type: text/html; charset=\"UTF-8\"\nContent-Transfer-Encoding: 7bit\n\n%s", from, email, subject, body)
+
+    err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{email}, []byte(msg))
+    if err != nil {
+        log.Printf("Error sending email: %v", err)
     }
 }
 

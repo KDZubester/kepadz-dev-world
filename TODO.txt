@@ -1,6 +1,7 @@
 MUST HAVES:
-Unsubscribe to emails page
-remove account page
+Account settings page
+    Remove account
+    Update email notification preferences
 Create comment section to articles
 
 
