@@ -1,2 +1,8 @@
-Create an admin page to send messages to all who are subscribed (or specific people)
+MUST HAVES:
+Unsubscribe to emails page
+remove account page
 Create comment section to articles
+
+
+NICE TO HAVES:
+Create an admin page to send messages to all who are subscribed (or specific people)

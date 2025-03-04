@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unsubscribe</title>
+</head>
+<body>
+    <h1>Unsubscribe from Email Updates</h1>
+    <form action="/unsubscribe" method="POST">
+        <input type="hidden" name="email" value="{{.Email}}">
+        <button type="submit">Unsubscribe</button>
+    </form>
+</body>
+</html>

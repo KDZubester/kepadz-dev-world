@@ -1,15 +1,10 @@
 package main
 
 import (
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/rand"
 	"crypto/tls"
     "database/sql"
-    "encoding/base64"
     "fmt"
     "html/template"
-    "io"
     "log"
     "net/http"
     "os"
@@ -109,6 +104,7 @@ func main() {
     r.HandleFunc("/signup", serveSignup).Methods("GET", "POST")
     r.HandleFunc("/login", serveLogin).Methods("GET", "POST")
     r.HandleFunc("/logout", serveLogout)
+	r.HandleFunc("/unsubscribe", serveUnsubscribe).Methods("GET", "POST")
 
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -235,19 +231,14 @@ func sendEmailToSubscribers(title, summary string) {
 
     var emails []string
     for rows.Next() {
-        var encryptedEmail string
-        err := rows.Scan(&encryptedEmail)
+        var email string
+        err := rows.Scan(&email)
         if err != nil {
             log.Printf("Error scanning email: %v", err)
             continue
         }
 
-        email, err := decryptEmail(encryptedEmail)
-        if err != nil {
-            log.Printf("Error decrypting email: %v", err)
-            continue
-        }
-
+        log.Printf("Email to be sent to: %s", email)
         emails = append(emails, email)
     }
 
@@ -261,16 +252,20 @@ func sendEmailToSubscribers(title, summary string) {
 
     from := smtpUser
     subject := "New Article Published: " + title
-    body := "A new article has been published on our blog:\n\n" + title + "\n\n" + summary + "\n\nVisit our blog to read the full article."
+    body := fmt.Sprintf(`
+        <html>
+        <body>
+        <p>A new article has been published on our blog:</p>
+        <p><strong>%s</strong></p>
+        <p>%s</p>
+        <p>Visit our blog to read the full article.</p>
+        <p>If you no longer wish to receive these emails, you can <a href="http://localhost:8080/unsubscribe?email=%%s">unsubscribe</a>.</p>
+        </body>
+        </html>
+    `, title, summary)
 
     for _, to := range emails {
-        msg := "From: " + from + "\n" +
-            "To: " + to + "\n" +
-            "Subject: " + subject + "\n" +
-            "MIME-Version: 1.0" + "\n" +
-            "Content-Type: text/plain; charset=\"UTF-8\"" + "\n" +
-            "Content-Transfer-Encoding: 7bit" + "\n\n" +
-            body
+        msg := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\nMIME-Version: 1.0\nContent-Type: text/html; charset=\"UTF-8\"\nContent-Transfer-Encoding: 7bit\n\n%s", from, to, subject, fmt.Sprintf(body, to))
 
         // Connect to the SMTP server
         conn, err := smtp.Dial(smtpHost + ":" + smtpPort)
@@ -329,7 +324,6 @@ func sendEmailToSubscribers(title, summary string) {
         log.Printf("Email sent to %s", to)
     }
 }
-
 func hashPassword(password string) (string, error) {
     bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
     return string(bytes), err
@@ -338,50 +332,6 @@ func hashPassword(password string) (string, error) {
 func checkPasswordHash(password, hash string) bool {
     err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
     return err == nil
-}
-
-func encryptEmail(email string) (string, error) {
-    block, err := aes.NewCipher(encryptionKey)
-    if err != nil {
-        return "", err
-    }
-
-    b := base64.StdEncoding.EncodeToString([]byte(email))
-    ciphertext := make([]byte, aes.BlockSize+len(b))
-    iv := ciphertext[:aes.BlockSize]
-    if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-        return "", err
-    }
-
-    stream := cipher.NewCFBEncrypter(block, iv)
-    stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(b))
-
-    return base64.URLEncoding.EncodeToString(ciphertext), nil
-}
-
-func decryptEmail(encryptedEmail string) (string, error) {
-    ciphertext, _ := base64.URLEncoding.DecodeString(encryptedEmail)
-
-    block, err := aes.NewCipher(encryptionKey)
-    if err != nil {
-        return "", err
-    }
-
-    if len(ciphertext) < aes.BlockSize {
-        return "", fmt.Errorf("ciphertext too short")
-    }
-    iv := ciphertext[:aes.BlockSize]
-    ciphertext = ciphertext[aes.BlockSize:]
-
-    stream := cipher.NewCFBDecrypter(block, iv)
-    stream.XORKeyStream(ciphertext, ciphertext)
-
-    data, err := base64.StdEncoding.DecodeString(string(ciphertext))
-    if err != nil {
-        return "", err
-    }
-
-    return string(data), nil
 }
 
 func serveSignup(w http.ResponseWriter, r *http.Request) {
@@ -402,15 +352,8 @@ func serveSignup(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    encryptedEmail, err := encryptEmail(email)
-    if err != nil {
-        log.Printf("Error encrypting email: %v", err)
-        http.Error(w, "Internal server error", http.StatusInternalServerError)
-        return
-    }
-
     _, err = db.Exec("INSERT INTO users (username, password_hash, email, receive_emails, role) VALUES (?, ?, ?, ?, ?)",
-        username, passwordHash, encryptedEmail, receiveEmails, "user")
+        username, passwordHash, email, receiveEmails, "user")
     if err != nil {
         log.Printf("Error inserting user into database: %v", err)
         http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -472,6 +415,45 @@ func serveLogout(w http.ResponseWriter, r *http.Request) {
     session.Save(r, w)
 
     http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func serveUnsubscribe(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodGet {
+        email := r.URL.Query().Get("email")
+        data := struct {
+            Email string
+        }{
+            Email: email,
+        }
+        tmpl, err := template.ParseFiles("unsubscribe.html")
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        tmpl.Execute(w, data)
+        return
+    }
+
+    if r.Method == http.MethodPost {
+        email := r.FormValue("email")
+
+        result, err := db.Exec("UPDATE users SET receive_emails = FALSE WHERE email = ?", email)
+        if err != nil {
+            log.Printf("Error updating user in database: %v", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+            return
+        }
+
+        rowsAffected, err := result.RowsAffected()
+        if err != nil {
+            log.Printf("Error getting rows affected: %v", err)
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+            return
+        }
+
+        log.Printf("User with email %s unsubscribed successfully, rows affected: %d", email, rowsAffected)
+        http.Redirect(w, r, "/", http.StatusSeeOther)
+    }
 }
 
 func isAuthenticated(r *http.Request) bool {
