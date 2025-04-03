@@ -1,9 +1,10 @@
 MUST HAVES:
-Account settings page
-    Remove account
-    Update email notification preferences
 Create comment section to articles
 
 
 NICE TO HAVES:
 Create an admin page to send messages to all who are subscribed (or specific people)
+Article Tags
+    Make articles searchable via Tags
+    Have users change which tags to get email updates about
+    When creating an account, have users select select which tags they want email updates about

@@ -20,6 +20,8 @@ import (
 var articleTemplate *template.Template
 var blogTemplate *template.Template
 var indexTemplate *template.Template
+var accountTemplate *template.Template
+var contactTemplate *template.Template
 var db *sql.DB
 
 // Article struct
@@ -43,6 +45,11 @@ type BlogPageData struct {
 
 type ArticlePageData struct {
     Article     Article
+    Permissions Permissions
+}
+
+type AccountPageData struct {
+    User        User
     Permissions Permissions
 }
 
@@ -71,6 +78,14 @@ func init() {
         panic(err)
     }
     indexTemplate, err = template.ParseFiles("index.html")
+    if err != nil {
+        panic(err)
+    }
+    accountTemplate, err = template.ParseFiles("account.html")
+    if err != nil {
+        panic(err)
+    }
+    contactTemplate, err = template.ParseFiles("contact.html")
     if err != nil {
         panic(err)
     }
@@ -104,10 +119,13 @@ func main() {
     r.HandleFunc("/signup", serveSignup).Methods("GET", "POST")
     r.HandleFunc("/login", serveLogin).Methods("GET", "POST")
     r.HandleFunc("/logout", serveLogout)
+    r.HandleFunc("/account", serveAccount).Methods("GET")
+    r.HandleFunc("/deleteAccount", serveDeleteAccount).Methods("POST")
 	r.HandleFunc("/unsubscribe", serveUnsubscribe).Methods("GET", "POST")
     r.HandleFunc("/forgotUsername", serveForgotUsername).Methods("GET", "POST")
     r.HandleFunc("/forgotPassword", serveForgotPassword).Methods("GET", "POST")
     r.HandleFunc("/resetPassword", serveResetPassword).Methods("GET", "POST")
+    r.HandleFunc("/contact", serveContact).Methods("GET", "POST")
 
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
@@ -420,9 +438,44 @@ func serveLogout(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func serveAccount(w http.ResponseWriter, r *http.Request) {
+    session, _ := store.Get(r, "session")
+    username, ok := session.Values["user_id"].(string)
+    if !ok || username == "" {
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+        return
+    }
+
+    // Query the database for the user's information
+    var user User
+    err := db.QueryRow("SELECT username, email, receive_emails, role FROM users WHERE username = ?", username).
+        Scan(&user.Username, &user.Email, &user.ReceiveEmails, &user.Role)
+    if err != nil {
+        log.Printf("Error retrieving user information: %v", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+
+    permissions := Permissions{
+        IsAuthenticated: isAuthenticated(r),
+        IsAdmin:         hasRole(r, "admin"),
+    }
+
+    accountData := AccountPageData{
+        User: user,
+        Permissions: permissions,
+    }
+
+    err = accountTemplate.ExecuteTemplate(w, "account", accountData)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
+}
+
 func serveUnsubscribe(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodGet {
         email := r.URL.Query().Get("email")
+
         data := struct {
             Email string
         }{
@@ -439,6 +492,26 @@ func serveUnsubscribe(w http.ResponseWriter, r *http.Request) {
 
     if r.Method == http.MethodPost {
         email := r.FormValue("email")
+
+        // If no email is provided in the URL, check the session for the logged-in user's email
+        if email == "" {
+            session, _ := store.Get(r, "session")
+            username, ok := session.Values["user_id"].(string)
+            if !ok || username == "" {
+                http.Redirect(w, r, "/login", http.StatusSeeOther)
+                return
+            }
+
+            // Query the database for the user's email
+            var dbEmail string
+            err := db.QueryRow("SELECT email FROM users WHERE username = ?", username).Scan(&dbEmail)
+            if err != nil {
+                log.Printf("Error retrieving email for user %s: %v", username, err)
+                http.Error(w, "Internal server error", http.StatusInternalServerError)
+                return
+            }
+            email = dbEmail
+        }
 
         result, err := db.Exec("UPDATE users SET receive_emails = FALSE WHERE email = ?", email)
         if err != nil {
@@ -457,6 +530,35 @@ func serveUnsubscribe(w http.ResponseWriter, r *http.Request) {
         log.Printf("User with email %s unsubscribed successfully, rows affected: %d", email, rowsAffected)
         http.Redirect(w, r, "/", http.StatusSeeOther)
     }
+}
+
+func serveDeleteAccount(w http.ResponseWriter, r *http.Request) {
+    session, _ := store.Get(r, "session")
+    username, ok := session.Values["user_id"].(string)
+    if !ok || username == "" {
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+        return
+    }
+
+    // Delete the user's account from the database
+    _, err := db.Exec("DELETE FROM users WHERE username = ?", username)
+    if err != nil {
+        log.Printf("Error deleting user account: %v", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+
+    // Clear the session
+    session.Options.MaxAge = -1
+    err = session.Save(r, w)
+    if err != nil {
+        log.Printf("Error clearing session: %v", err)
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+
+    log.Printf("User %s deleted their account successfully", username)
+    http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func serveForgotUsername(w http.ResponseWriter, r *http.Request) {
@@ -550,6 +652,45 @@ func serveResetPassword(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func serveContact(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodGet {
+    
+        permissions := Permissions{
+            IsAuthenticated: isAuthenticated(r),
+            IsAdmin:         hasRole(r, "admin"),
+        }
+
+        err := contactTemplate.ExecuteTemplate(w, "contact", permissions)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+        }
+        return
+    }
+
+    if r.Method == http.MethodPost {
+        name := r.FormValue("name")
+        email := r.FormValue("email")
+        message := r.FormValue("message")
+
+        // Validate that all fields are filled
+        if name == "" || email == "" || message == "" {
+            http.Error(w, "All fields are required", http.StatusBadRequest)
+            return
+        }
+
+        // Send the email
+        err := sendContactEmail(name, email, message)
+        if err != nil {
+            log.Printf("Error sending contact email: %v", err)
+            http.Error(w, "Failed to send message. Please try again later.", http.StatusInternalServerError)
+            return
+        }
+
+        log.Printf("Contact form submitted by %s (%s)", name, email)
+        http.Redirect(w, r, "/", http.StatusSeeOther)
+    }
+}
+
 func sendUsernameEmail(email, username string) {
     smtpHost := os.Getenv("SMTP_HOST")
     smtpPort := os.Getenv("SMTP_PORT")
@@ -595,6 +736,33 @@ func sendResetPasswordEmail(email, username string) {
     if err != nil {
         log.Printf("Error sending email: %v", err)
     }
+}
+
+func sendContactEmail(name, email, message string) error {
+    smtpHost := os.Getenv("SMTP_HOST")
+    smtpPort := os.Getenv("SMTP_PORT")
+    smtpUser := os.Getenv("SMTP_USER")
+    smtpPass := os.Getenv("SMTP_PASS")
+
+    auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
+    to := "kdz@kepa.com" // Replace with the email address where you want to receive messages
+    subject := "Dev World Contact Form Submission"
+    body := fmt.Sprintf(`
+        <html>
+        <body>
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> %s</p>
+        <p><strong>Email:</strong> %s</p>
+        <p><strong>Message:</strong></p>
+        <p>%s</p>
+        </body>
+        </html>
+    `, name, email, message)
+
+    msg := fmt.Sprintf("From: %s\nTo: %s\nSubject: %s\nMIME-Version: 1.0\nContent-Type: text/html; charset=\"UTF-8\"\n\n%s", email, to, subject, body)
+
+    return smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpUser, []string{to}, []byte(msg))
 }
 
 func isAuthenticated(r *http.Request) bool {

@@ -12,10 +12,12 @@
                 <li><a href="/blog">Blog</a></li>
                 {{if .Permissions.IsAuthenticated}}
                     <li><a href="/logout">Logout</a></li>
+                    <li><a href="/account">Account Info</a></li>
                 {{else}}
                     <li><a href="/login">Login</a></li>
                     <li><a href="/signup">Sign Up</a></li>
                 {{end}}
+                <li><a href="/contact">Contact Us</a></li>
             </ul>
         </nav>
     </header>

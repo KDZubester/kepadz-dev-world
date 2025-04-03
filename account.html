@@ -1,0 +1,39 @@
+{{define "account"}}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Account Info</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/">About</a></li>
+                <li><a href="/blog">Blog</a></li>
+                {{if .Permissions.IsAuthenticated}}
+                    <li><a href="/logout">Logout</a></li>
+                {{else}}
+                    <li><a href="/login">Login</a></li>
+                    <li><a href="/signup">Sign Up</a></li>
+                {{end}}
+            </ul>
+        </nav>
+    </header>
+
+    <h1>Account Settings</h1>
+    <p>Welcome, {{.User.Username}}!</p>
+    <p>Email: {{.User.Email}}</p>
+    <p>Subscribed to Emails: {{if .User.ReceiveEmails}}Yes{{else}}No{{end}}</p>
+
+    <!-- Unsubscribe Form -->
+    <form action="/unsubscribe" method="POST">
+        <button type="submit">Unsubscribe from Emails</button>
+    </form>
+
+    <!-- Delete Account Form -->
+    <form action="/deleteAccount" method="POST">
+        <button type="submit" style="color: red;">Delete Account</button>
+    </form>
+</body>
+</html>
+{{end}}
