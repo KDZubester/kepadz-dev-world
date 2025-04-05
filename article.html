@@ -23,8 +23,45 @@
     </header>
     <h1>{{ .Article.Title }}</h1>
     <img src="{{ .Article.Image }}" alt="Article Image" style="max-width:100%;">
-    <p><strong>Summary Outer:</strong> {{ .Article.Summary }}</p>
+    <p><strong>Summary:</strong> {{ .Article.Summary }}</p>
     <article>{{ .Article.Content }}</article>
+    <h2>Comments</h2>
+    <div id="comments">
+        {{range .Comments}}
+            {{template "comment" (dict "Comment" . "IsAuthenticated" $.Permissions.IsAuthenticated "ArticleID" $.Article.ID)}}
+        {{end}}
+    </div>
+
+    {{if .Permissions.IsAuthenticated}}
+        <h3>Add a Comment</h3>
+        <form action="/comment" method="POST">
+            <input type="hidden" name="article_id" value="{{.Article.ID}}">
+            <textarea name="content" rows="4" required></textarea>
+            <button type="submit">Post Comment</button>
+        </form>
+    {{else}}
+        <p><a href="/login">Log in</a> to post a comment.</p>
+    {{end}}
 </body>
 </html>
+{{end}}
+
+{{define "comment"}}
+<div style="margin-left: {{multiply .Comment.Depth 20}}px; border-left: 1px solid #ccc; padding-left: 10px; margin-bottom: 10px;">
+    <p><strong>{{.Comment.Username}}</strong> ({{.Comment.CreatedAt}}):</p>
+    <p>{{.Comment.Content}}</p>
+    {{if .IsAuthenticated}}
+        <form action="/comment" method="POST">
+            <input type="hidden" name="article_id" value="{{.ArticleID}}">
+            <input type="hidden" name="parent_id" value="{{.Comment.ID}}">
+            <textarea name="content" rows="2" required></textarea>
+            <button type="submit">Reply</button>
+        </form>
+    {{end}}
+    {{if .Comment.Replies}}
+        {{range .Comment.Replies}}
+            {{template "comment" (dict "Comment" . "IsAuthenticated" $.IsAuthenticated "ArticleID" $.ArticleID)}}
+        {{end}}
+    {{end}}
+</div>
 {{end}}

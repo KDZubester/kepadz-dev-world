@@ -1,10 +1,9 @@
 MUST HAVES:
-Create comment section to articles
-
-
-NICE TO HAVES:
-Create an admin page to send messages to all who are subscribed (or specific people)
-Article Tags
+>Create ability for admin to delete articles
+>Create ability for admin to delete Comments
+>Create csv file with list of subscribers
+>Create admin page to send messages to subscribers
+>Article Tags
     Make articles searchable via Tags
     Have users change which tags to get email updates about
     When creating an account, have users select select which tags they want email updates about

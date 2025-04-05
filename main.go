@@ -10,6 +10,7 @@ import (
     "os"
     "sync"
 	"net/smtp"
+    "strconv"
 
     "github.com/gorilla/mux"
     "github.com/gorilla/sessions"
@@ -33,6 +34,17 @@ type Article struct {
     Content template.HTML
 }
 
+type Comment struct {
+    ID        int
+    ArticleID int
+    ParentID  *int
+    Username  string
+    Content   string
+    CreatedAt string
+    Replies   []*Comment
+    Depth     int
+}
+
 type Permissions struct {
     IsAuthenticated bool
     IsAdmin         bool
@@ -46,6 +58,7 @@ type BlogPageData struct {
 type ArticlePageData struct {
     Article     Article
     Permissions Permissions
+    Comments    []Comment
 }
 
 type AccountPageData struct {
@@ -69,7 +82,26 @@ var mu sync.Mutex
 
 func init() {
     var err error
-    articleTemplate, err = template.ParseFiles("article.html")
+    // Register custom functions for templates
+    funcMap := template.FuncMap{
+        "multiply": func(a, b int) int { return a * b },
+        "dict": func(values ...interface{}) map[string]interface{} {
+            if len(values)%2 != 0 {
+                panic("dict requires an even number of arguments")
+            }
+            dict := make(map[string]interface{}, len(values)/2)
+            for i := 0; i < len(values); i += 2 {
+                key, ok := values[i].(string)
+                if !ok {
+                    panic("dict keys must be strings")
+                }
+                dict[key] = values[i+1]
+            }
+            return dict
+        },
+    }
+
+    articleTemplate, err = template.New("article").Funcs(funcMap).ParseFiles("article.html")
     if err != nil {
         panic(err)
     }
@@ -114,6 +146,7 @@ func main() {
     r.HandleFunc("/", serveIndex)
     r.HandleFunc("/blog", serveBlog)
     r.HandleFunc("/blog/article/{id}", articleHandler)        // Serve article dynamically
+    r.HandleFunc("/comment", commentHandler).Methods("POST")  // Handle comment submission
     r.HandleFunc("/blog/createArticle", serveCreateArticle)   // Serve the article creation form
     r.HandleFunc("/saveArticle", saveArticle).Methods("POST") // Save the new article
     r.HandleFunc("/signup", serveSignup).Methods("GET", "POST")
@@ -197,30 +230,158 @@ func serveCreateArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 func articleHandler(w http.ResponseWriter, r *http.Request) {
-    id := mux.Vars(r)["id"]
+    vars := mux.Vars(r)
+    articleIDStr := vars["id"]
 
+    // Retrieve the article
     var article Article
-    err := db.QueryRow("SELECT id, title, image, summary, content FROM articles WHERE id = ?", id).Scan(&article.ID, &article.Title, &article.Image, &article.Summary, &article.Content)
-    if err == sql.ErrNoRows {
-        http.NotFound(w, r)
-        return
-    } else if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+    err := db.QueryRow(`
+        SELECT id, title, image, summary, content
+        FROM articles
+        WHERE id = ?
+    `, articleIDStr).Scan(&article.ID, &article.Title, &article.Image, &article.Summary, &article.Content)
+    if err != nil {
+        log.Printf("Error retrieving article: %v", err)
+        http.Error(w, "Article not found", http.StatusNotFound)
         return
     }
 
+    // Retrieve comments for the article
+    comments, err := getCommentsForArticle(articleIDStr)
+    if err != nil {
+        log.Printf("Error retrieving comments: %v", err)
+        http.Error(w, "Failed to load comments", http.StatusInternalServerError)
+        return
+    }
+
+    // Prepare data for the template
     data := ArticlePageData{
-        Article: article,
+        Article:     article,
         Permissions: Permissions{
             IsAuthenticated: isAuthenticated(r),
             IsAdmin:         hasRole(r, "admin"),
         },
+        Comments: dereferenceComments(comments), // Convert []*Comment to []Comment
     }
 
+    // Render the template
     err = articleTemplate.ExecuteTemplate(w, "article", data)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+        log.Printf("Error rendering template: %v", err)
+        http.Error(w, "Failed to render page", http.StatusInternalServerError)
+        return
     }
+}
+
+func dereferenceComments(comments []*Comment) []Comment {
+    var result []Comment
+    for _, c := range comments {
+        result = append(result, *c)
+    }
+    return result
+}
+
+func getCommentsForArticle(articleID string) ([]*Comment, error) {
+    rows, err := db.Query(`
+        SELECT id, parent_id, username, content, created_at
+        FROM comments
+        WHERE article_id = ?
+        ORDER BY created_at ASC
+    `, articleID)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    commentsMap := make(map[int]*Comment) // Map to store comments by their ID
+    var topLevelComments []*Comment      // Slice to store pointers to top-level comments
+
+    for rows.Next() {
+        var c Comment
+        var parentID sql.NullInt64
+        if err := rows.Scan(&c.ID, &parentID, &c.Username, &c.Content, &c.CreatedAt); err != nil {
+            return nil, err
+        }
+
+        if parentID.Valid {
+            c.ParentID = new(int)
+            *c.ParentID = int(parentID.Int64)
+        }
+
+        // Add the comment to the map
+        commentsMap[c.ID] = &c
+
+        if c.ParentID == nil {
+            // Top-level comment
+            c.Depth = 0
+            topLevelComments = append(topLevelComments, &c) // Store pointer to the comment
+        } else {
+            // Nested comment
+            parent := commentsMap[*c.ParentID]
+            if parent != nil {
+                c.Depth = parent.Depth + 1
+                parent.Replies = append(parent.Replies, &c) // Add to parent's Replies
+                log.Printf("Added comment ID=%d as a reply to parent ID=%d", c.ID, *c.ParentID)
+                log.Printf("Parent ID=%d now has %d replies", *c.ParentID, len(parent.Replies))
+            } else {
+                log.Printf("Warning: Parent comment with ID %d not found", *c.ParentID)
+            }
+        }
+    }
+
+    return topLevelComments, nil
+}
+
+func saveComment(articleID string, parentID *int, username, content string) error {
+    _, err := db.Exec(`
+        INSERT INTO comments (article_id, parent_id, username, content)
+        VALUES (?, ?, ?, ?)
+    `, articleID, parentID, username, content)
+    return err
+}
+
+func commentHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+        return
+    }
+
+    session, _ := store.Get(r, "session")
+    username, ok := session.Values["user_id"].(string)
+    if !ok || username == "" {
+        http.Redirect(w, r, "/login", http.StatusSeeOther)
+        return
+    }
+
+    articleID := r.FormValue("article_id")
+    parentIDStr := r.FormValue("parent_id")
+    var parentID *int
+    if parentIDStr != "" {
+        id, err := strconv.Atoi(parentIDStr)
+        if err != nil {
+            http.Error(w, "Invalid parent ID", http.StatusBadRequest)
+            return
+        }
+        parentID = &id
+    }
+
+    content := r.FormValue("content")
+    if content == "" {
+        http.Error(w, "Content cannot be empty", http.StatusBadRequest)
+        return
+    }
+
+    // Save the comment to the database
+    err := saveComment(articleID, parentID, username, content)
+    if err != nil {
+        log.Printf("Error saving comment: %v", err)
+        http.Error(w, "Failed to save comment", http.StatusInternalServerError)
+        return
+    }
+
+    log.Printf("Comment saved: article_id=%s, parent_id=%v, username=%s, content=%s", articleID, parentID, username, content)
+
+    http.Redirect(w, r, fmt.Sprintf("/blog/article/%s", articleID), http.StatusSeeOther)
 }
 
 func saveArticle(w http.ResponseWriter, r *http.Request) {
