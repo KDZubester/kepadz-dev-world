@@ -1,0 +1,32 @@
+{{define "deleteArticle"}}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delete Articles</title>
+</head>
+<body>
+    <header>
+        <h1>Delete Articles</h1>
+        <nav>
+            <a href="/blog">Back to Blog</a>
+        </nav>
+    </header>
+    {{if .IsAdmin}}
+        <h2>Articles</h2>
+        <form action="/blog/deleteArticle" method="POST">
+            <ul>
+                {{range .Articles}}
+                    <li>
+                        <input type="checkbox" name="article_ids" value="{{.ID}}">
+                        <strong>{{.Title}}</strong>
+                    </li>
+                {{end}}
+            </ul>
+            <button type="submit">Delete Selected Articles</button>
+        </form>
+    {{else}}
+        <p>You do not have permission to access this page.</p>
+    {{end}}
+</body>
+</html>
+{{end}}

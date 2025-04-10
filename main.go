@@ -23,6 +23,7 @@ var blogTemplate *template.Template
 var indexTemplate *template.Template
 var accountTemplate *template.Template
 var contactTemplate *template.Template
+var deleteArticleTemplate * template.Template
 var db *sql.DB
 
 // Article struct
@@ -121,6 +122,10 @@ func init() {
     if err != nil {
         panic(err)
     }
+    deleteArticleTemplate, err = template.ParseFiles("deleteArticle.html")
+    if err != nil {
+        panic(err)
+    }
 
     // Initialize database connection using environment variables
     dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s",
@@ -150,6 +155,7 @@ func main() {
     r.HandleFunc("/blog/createArticle", serveCreateArticle)   // Serve the article creation form
     r.HandleFunc("/saveArticle", saveArticle).Methods("POST") // Save the new article
     r.HandleFunc("/signup", serveSignup).Methods("GET", "POST")
+    r.HandleFunc("/blog/deleteArticle", serveDeleteArticle).Methods("GET", "POST")
     r.HandleFunc("/login", serveLogin).Methods("GET", "POST")
     r.HandleFunc("/logout", serveLogout)
     r.HandleFunc("/account", serveAccount).Methods("GET")
@@ -400,6 +406,87 @@ func saveArticle(w http.ResponseWriter, r *http.Request) {
     go sendEmailToSubscribers(title, summary)
 
     http.Redirect(w, r, "/blog", http.StatusSeeOther)
+}
+
+func serveDeleteArticle(w http.ResponseWriter, r *http.Request) {
+    // Check if the user is an admin
+    if !hasRole(r, "admin") {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return
+    }
+
+    if r.Method == http.MethodGet {
+        // Handle GET request: Render the deleteArticle.html page
+        rows, err := db.Query(`
+            SELECT id, title
+            FROM articles
+            ORDER BY id DESC
+        `)
+        if err != nil {
+            log.Printf("Error fetching articles: %v", err)
+            http.Error(w, "Failed to load articles", http.StatusInternalServerError)
+            return
+        }
+        defer rows.Close()
+
+        var articles []Article
+        for rows.Next() {
+            var article Article
+            if err := rows.Scan(&article.ID, &article.Title); err != nil {
+                log.Printf("Error scanning article: %v", err)
+                http.Error(w, "Failed to load articles", http.StatusInternalServerError)
+                return
+            }
+            articles = append(articles, article)
+        }
+
+        // Prepare data for the template
+        data := struct {
+            IsAdmin  bool
+            Articles []Article
+        }{
+            IsAdmin:  true,
+            Articles: articles,
+        }
+
+        // Render the template
+        err = deleteArticleTemplate.ExecuteTemplate(w, "deleteArticle", data)
+        if err != nil {
+            log.Printf("Error rendering template: %v", err)
+            http.Error(w, "Failed to render page", http.StatusInternalServerError)
+            return
+        }
+    } else if r.Method == http.MethodPost {
+        // Handle POST request: Process article deletion
+        if err := r.ParseForm(); err != nil {
+            log.Printf("Error parsing form: %v", err)
+            http.Error(w, "Invalid request", http.StatusBadRequest)
+            return
+        }
+
+        // Get the selected article IDs
+        articleIDs := r.Form["article_ids"]
+        if len(articleIDs) == 0 {
+            http.Redirect(w, r, "/blog", http.StatusSeeOther)
+            return
+        }
+
+        // Delete the selected articles
+        for _, id := range articleIDs {
+            _, err := db.Exec(`DELETE FROM articles WHERE id = ?`, id)
+            if err != nil {
+                log.Printf("Error deleting article ID %s: %v", id, err)
+                http.Error(w, "Failed to delete articles", http.StatusInternalServerError)
+                return
+            }
+            log.Printf("Deleted article ID %s", id)
+        }
+
+        // Redirect back to the delete page
+        http.Redirect(w, r, "/blog/deleteArticle", http.StatusSeeOther)
+    } else {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+    }
 }
 
 func sendEmailToSubscribers(title, summary string) {
