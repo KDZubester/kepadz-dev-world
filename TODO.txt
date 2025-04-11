@@ -1,5 +1,4 @@
 MUST HAVES:
->Create ability for admin to delete articles
 >Create ability for admin to delete Comments
 >Create csv file with list of subscribers
 >Create admin page to send messages to subscribers
@@ -7,3 +6,6 @@ MUST HAVES:
     Make articles searchable via Tags
     Have users change which tags to get email updates about
     When creating an account, have users select select which tags they want email updates about
+
+NICE TO HAVES:
+>Save images and media in folder when saving articles

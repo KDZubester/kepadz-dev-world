@@ -11,6 +11,8 @@ import (
     "sync"
 	"net/smtp"
     "strconv"
+    "strings"
+    "path/filepath"
 
     "github.com/gorilla/mux"
     "github.com/gorilla/sessions"
@@ -198,7 +200,7 @@ func servePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveBlog(w http.ResponseWriter, r *http.Request) {
-    rows, err := db.Query("SELECT id, title, image, summary, content FROM articles")
+    rows, err := db.Query("SELECT id, title, IFNULL(image, ''), summary, content FROM articles")
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -242,7 +244,7 @@ func articleHandler(w http.ResponseWriter, r *http.Request) {
     // Retrieve the article
     var article Article
     err := db.QueryRow(`
-        SELECT id, title, image, summary, content
+        SELECT id, title, IFNULL(image, ''), summary, content
         FROM articles
         WHERE id = ?
     `, articleIDStr).Scan(&article.ID, &article.Title, &article.Image, &article.Summary, &article.Content)
@@ -396,7 +398,7 @@ func saveArticle(w http.ResponseWriter, r *http.Request) {
     summary := r.FormValue("summary")
     content := r.FormValue("content")
 
-    _, err := db.Exec("INSERT INTO articles (title, image, summary, content) VALUES (?, ?, ?, ?)", title, image, summary, content)
+    result, err := db.Exec("INSERT INTO articles (title, image, summary, content) VALUES (?, ?, ?, ?)", title, image, summary, content)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -405,6 +407,40 @@ func saveArticle(w http.ResponseWriter, r *http.Request) {
     // Send email to users who opted to receive emails
     go sendEmailToSubscribers(title, summary)
 
+    // Get the inserted article ID
+    articleID, err := result.LastInsertId()
+    if err != nil {
+        log.Printf("Error getting last insert ID: %v", err)
+        http.Error(w, "Failed to save article", http.StatusInternalServerError)
+        return
+    }
+
+    // Create the article folder
+    baseDir := os.Getenv("ARTICLE_BASE_DIR") // Get the base directory from environment variables
+    if baseDir == "" {
+        baseDir = "./articles" // Default directory if environment variable is not set
+    }
+
+    folderName := strings.ReplaceAll(title, " ", "_") // Replace spaces with underscores
+    articleFolder := filepath.Join(baseDir, folderName)
+
+    if err := os.MkdirAll(articleFolder, os.ModePerm); err != nil {
+        log.Printf("Error creating article folder: %v", err)
+        http.Error(w, "Failed to create article folder", http.StatusInternalServerError)
+        return
+    }
+
+    // Save the article text to a file
+    articleFile := filepath.Join(articleFolder, "article.txt")
+    articleContent := fmt.Sprintf("Title: %s\nSummary: %s\nContent:\n%s", title, summary, content)
+
+    if err := os.WriteFile(articleFile, []byte(articleContent), 0644); err != nil {
+        log.Printf("Error writing article text file: %v", err)
+        http.Error(w, "Failed to save article text", http.StatusInternalServerError)
+        return
+    }
+
+    log.Printf("Article %d saved successfully with folder %s", articleID, articleFolder)
     http.Redirect(w, r, "/blog", http.StatusSeeOther)
 }
 
@@ -471,9 +507,17 @@ func serveDeleteArticle(w http.ResponseWriter, r *http.Request) {
             return
         }
 
-        // Delete the selected articles
         for _, id := range articleIDs {
-            _, err := db.Exec(`DELETE FROM articles WHERE id = ?`, id)
+            // Delete comments associated with the article
+            _, err := db.Exec(`DELETE FROM comments WHERE article_id = ?`, id)
+            if err != nil {
+                log.Printf("Error deleting comments for article ID %s: %v", id, err)
+                http.Error(w, "Failed to delete comments", http.StatusInternalServerError)
+                return
+            }
+
+            // Delete the article
+            _, err = db.Exec(`DELETE FROM articles WHERE id = ?`, id)
             if err != nil {
                 log.Printf("Error deleting article ID %s: %v", id, err)
                 http.Error(w, "Failed to delete articles", http.StatusInternalServerError)
